@@ -30,7 +30,7 @@ from utils import train_utils, googlenet_load, tf_concat
 
 @ops.RegisterGradient("Hungarian")
 def _hungarian_grad(op, *args):
-    return list(map(array_ops.zeros_like, op.inputs))
+    return map(array_ops.zeros_like, op.inputs)
 
 def build_lstm_inner(H, lstm_input):
     '''
@@ -355,7 +355,7 @@ def build(H, q):
                 grads = tf.gradients(loss['train'], tvars)
             else:
                 grads, norm = tf.clip_by_global_norm(tf.gradients(loss['train'], tvars), H['clip_norm'])
-            train_op = opt.apply_gradients(list(zip(grads, tvars)), global_step=global_step)
+            train_op = opt.apply_gradients(zip(grads, tvars), global_step=global_step)
         elif phase == 'test':
             moving_avg = tf.train.ExponentialMovingAverage(0.95)
             smooth_op = moving_avg.apply([accuracy['train'], accuracy['test'],
@@ -458,7 +458,7 @@ def train(H, test_images):
         for phase in ['train', 'test']:
             # enqueue once manually to avoid thread start delay
             gen = train_utils.load_data_gen(H, phase, jitter=H['solver']['use_jitter'])
-            d = next(gen)
+            d = gen.next()
             sess.run(enqueue_op[phase], feed_dict=make_feed(d))
             t = threading.Thread(target=thread_loop,
                                  args=(sess, enqueue_op, phase, gen))
@@ -470,7 +470,7 @@ def train(H, test_images):
         writer.add_graph(sess.graph)
         weights_str = H['solver']['weights']
         if len(weights_str) > 0:
-            print(('Restoring from: %s' % weights_str))
+            print('Restoring from: %s' % weights_str)
             saver.restore(sess, weights_str)
         else:
             init_fn = slim.assign_from_checkpoint_fn(
@@ -484,7 +484,7 @@ def train(H, test_images):
         # train model for N iterations
         start = time.time()
         max_iter = H['solver'].get('max_iter', 10000000)
-        for i in range(max_iter):
+        for i in xrange(max_iter):
             display_iter = H['logging']['display_iter']
             adjusted_lr = (H['solver']['learning_rate'] *
                            0.5 ** max(0, (i / H['solver']['learning_rate_step']) - 2))
@@ -510,9 +510,9 @@ def train(H, test_images):
                     'Softmax Test Accuracy: %.1f%%',
                     'Time/image (ms): %.1f'
                 ], ', ')
-                print((print_str %
+                print(print_str %
                       (i, adjusted_lr, train_loss,
-                       test_accuracy * 100, dt * 1000 if i > 0 else 0)))
+                       test_accuracy * 100, dt * 1000 if i > 0 else 0))
 
             if global_step.eval() % H['logging']['save_iter'] == 0 or global_step.eval() == max_iter - 1:
                 saver.save(sess, ckpt_file, global_step=global_step)
